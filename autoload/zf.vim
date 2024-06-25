@@ -1,12 +1,4 @@
 vim9script
-# ==============================================================================
-# Run fzy asynchronously inside a Vim terminal-window
-# File:         autoload/fzy.vim
-# Author:       bfrg <https://github.com/bfrg>
-# Website:      https://github.com/bfrg/vim-fzy
-# Last Change:  Oct 21, 2022
-# License:      Same as Vim itself (see :h license)
-# ==============================================================================
 
 const findcmd: list<string> =<< trim END
     find
@@ -25,7 +17,7 @@ def Error(msg: string)
 enddef
 
 def Update_cmd_history(cmd: string)
-    if get(get(g:, 'fzy', {}), 'histadd', false)
+    if get(get(g:, 'zf', {}), 'histadd', false)
         histadd('cmd', cmd)
     endif
 enddef
@@ -72,7 +64,7 @@ def Term_open(opts: dict<any>, ctx: dict<any>): number
     var term_opts: dict<any> = {
         norestore: true,
         exit_cb: funcref(Exit_cb, [ctx]),
-        term_name: 'fzy',
+        term_name: 'zf',
         term_rows: opts.rows
     }
 
@@ -111,12 +103,12 @@ def Term_open(opts: dict<any>, ctx: dict<any>): number
         &l:statusline = opts.statusline
     endif
 
-    setbufvar(bufnr, '&filetype', 'fzy')
+    setbufvar(bufnr, '&filetype', 'zf')
     return bufnr
 enddef
 
 def Opts(title: string, space: bool = false): dict<any>
-    var opts: dict<any> = get(g:, 'fzy', {})->deepcopy()->extend({statusline: title})
+    var opts: dict<any> = get(g:, 'zf', {})->deepcopy()->extend({statusline: title})
     get(opts, 'popup', {})->extend({title: space ? ' ' .. title : title})
     return opts
 enddef
@@ -150,7 +142,7 @@ enddef
 def Grep_cb(efm: string, vim_cmd: string, choice: string)
     const items: list<any> = getqflist({lines: [choice], efm: efm})->get('items', [])
     if empty(items) || !items[0].bufnr
-        Error('fzy: no valid item selected')
+        Error('zf: no valid item selected')
         return
     endif
     setbufvar(items[0].bufnr, '&buflisted', 1)
@@ -161,7 +153,7 @@ enddef
 
 export def Start(items: any, On_select_cb: func, options: dict<any> = {}): number
     if empty(items)
-        Error('fzy-E10: No items passed')
+        Error('zf-E10: No items passed')
         return 0
     endif
 
@@ -173,64 +165,60 @@ export def Start(items: any, On_select_cb: func, options: dict<any> = {}): numbe
     }
 
     var opts: dict<any> = options->deepcopy()->extend({
-        exe: exepath('fzy'),
-        prompt: '> ',
-        lines: 10,
-        showinfo: 0,
+        exe: exepath('zf'),
+        height: 10,
         popup: {},
         histadd: false,
-        statusline: 'fzy-term'
+        statusline: 'zf-term'
     }, 'keep')
 
     if !executable(opts.exe)
-        Error($'fzy: executable "{opts.exe}" not found')
+        Error($'zf: executable "{opts.exe}" not found')
         return 0
     endif
 
-    var lines: number = opts.lines < 3 ? 3 : opts.lines
-    opts.rows = opts.showinfo ? lines + 2 : lines + 1
+    var height: number = opts.height < 3 ? 3 : opts.height
+    opts.rows = height + 1
 
-    const fzycmd: string = printf('%s --lines=%d --prompt=%s %s > %s',
+    const zfcmd: string = printf('%s --height %d > %s',
         opts.exe,
-        lines,
-        shellescape(opts.prompt),
-        opts.showinfo ? '--show-info' : '',
+        height,
         ctx.selectfile
     )
 
-    var fzybuf: number
+    var zfbuf: number
     if type(items) ==  v:t_list
         ctx.itemsfile = tempname()
 
         # Automatically resize terminal window
-        if len(items) < lines
-            lines = len(items) < 3 ? 3 : len(items)
-            opts.rows = get(opts, 'showinfo') ? lines + 2 : lines + 1
+        if len(items) < height
+            height = len(items) < 3 ? 3 : len(items)
+            opts.rows = height + 1
         endif
 
-        opts.shellcmd = $'{fzycmd} < {ctx.itemsfile}'
+        opts.shellcmd = $'{zfcmd} < {ctx.itemsfile}'
         if executable('mkfifo')
             system($'mkfifo {ctx.itemsfile}')
-            fzybuf = Term_open(opts, ctx)
+            zfbuf = Term_open(opts, ctx)
             writefile(items, ctx.itemsfile)
         else
             writefile(items, ctx.itemsfile)
-            fzybuf = Term_open(opts, ctx)
+            zfbuf = Term_open(opts, ctx)
         endif
     elseif type(items) == v:t_string
-        opts.shellcmd = $'{items} | {fzycmd}'
-        fzybuf = Term_open(opts, ctx)
+        opts.shellcmd = $'{items} | {zfcmd}'
+        zfbuf = Term_open(opts, ctx)
     else
-        Error('fzy-E11: Only list and string supported')
+        Error('zf-E11: Only list and string supported')
         return 0
     endif
 
-    return fzybuf
+    return zfbuf
 enddef
 
 export def Stop()
-    if &buftype != 'terminal' || bufname() != 'fzy'
-        Error('fzy-E12: Not a fzy terminal window')
+    if &buftype != 'terminal' || bufname() != 'zf'
+        Error('zf-E12: Not a zf terminal window')
         return
     endif
     bufnr()->term_getjob()->job_stop()
@@ -238,14 +226,14 @@ enddef
 
 export def Find(dir: string, vim_cmd: string, mods: string)
     if !isdirectory(expand(dir, true))
-        Error($'fzy-find: Directory "{expand(dir, true)}" does not exist')
+        Error($'zf-find: Directory "{expand(dir, true)}" does not exist')
         return
     endif
 
     const path: string = dir->expand(true)->fnamemodify(':~')->simplify()
     const cmd: string = printf('cd %s; %s',
         expand(path, true)->shellescape(),
-        get(g:, 'fzy', {})->get('findcmd', join(findcmd))
+        get(g:, 'zf', {})->get('findcmd', join(findcmd))
     )
     const editcmd: string = empty(mods) ? vim_cmd : (mods .. ' ' .. vim_cmd)
     const stl: string = $':{editcmd} [directory: {path}]'
@@ -287,8 +275,8 @@ enddef
 
 export def Grep(edit_cmd: string, mods: string, args: string)
     const cmd: string = empty(mods) ? edit_cmd : (mods .. ' ' .. edit_cmd)
-    const grep_cmd: string = get(g:, 'fzy', {})->get('grepcmd', &grepprg) .. ' ' .. args
-    const grep_efm: string = get(g:, 'fzy', {})->get('grepformat', &grepformat)
+    const grep_cmd: string = get(g:, 'zf', {})->get('grepcmd', &grepprg) .. ' ' .. args
+    const grep_efm: string = get(g:, 'zf', {})->get('grepformat', &grepformat)
     const stl: string = $':{cmd} ({grep_cmd})'
     Start(grep_cmd, funcref(Grep_cb, [grep_efm, cmd]), Opts(stl))
 enddef
