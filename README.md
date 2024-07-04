@@ -10,8 +10,8 @@ of the screen or in a popup window.
 
 <dl>
   <p align="center">
-  <a href="https://asciinema.org/a/268637">
-    <img src="https://asciinema.org/a/268637.png" width="480">
+  <a href="https://asciinema.org/a/666835">
+    <img src="https://asciinema.org/a/666835.png" width="480">
   </a>
   </p>
 </dl>
